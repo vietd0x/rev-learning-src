@@ -4,7 +4,7 @@
 
 Ta có 3 tệp như sau
 
-```bash
+```r
 gtn.dll:         PE32 executable (DLL) (console) Intel 80386, for MS Windows
 md5: 672b00b2b6a894bf1906b227bff6426f
 
@@ -15,15 +15,15 @@ win.exe:         PE32 executable (GUI) Intel 80386, for MS Windows
 md5: 5d61be7db55b026a5d61a3eed09d0ead
 ```
 
-Bước đầu tiên ta sẽ tra hash các file với virustotal, file thực thi `win.exe` với kết quả 0/70, file `lengs.medil.xml` được scan 6 tháng trước (2022-6-14) với kêt quả 0/50 và `gtn.dll` với kết quả  **28/70** . Như vậy, ta có thể đoán được khi người dùng chạy file thực thi win.exe, malicious code trong dll gtn.dll sẽ chạy.
+Bước đầu tiên ta sẽ tra hash các file với virustotal, file thực thi `win.exe` với kết quả 0/70, file `lengs.medil.xml` được scan 6 tháng trước (2022-6-14) với kêt quả 0/50 và `gtn.dll` với kết quả  **28/70** . Như vậy, ta có thể đoán được khi người dùng chạy file thực thi win.exe, malicious code trong dll **gtn.dll** sẽ chạy.
 
 # Quick analysis:
 
 Đầu tiên ta tìm được hàm `Go` (export function of gtn.dll) mà win.exe gọi tới. 
 
-Ta sẽ tập chung vào việc phân tích malicious dll gtn.dll.
+> Ta sẽ tập chung vào việc phân tích malicious Dll **gtn.dll**.
 
-Sử dụng ida plugin **FuncScanner**, ta sẽ sort để tìm ra hàm được gọi nhiều nhất nhưng ko phải là hàm của thư viện.
+Sử dụng ida plugin **FuncScanner**, ta sẽ sort theo xref để tìm ra hàm được gọi nhiều nhất nhưng ko phải là hàm của thư viện, ta tìm đến hàm **sub_10001064** dưởi đây:
 
 ```bash
 int __cdecl sub_10001064(char a1, char a2){
@@ -35,7 +35,7 @@ int __cdecl sub_10001064(char a1, char a2){
 }
 ```
 
-Sau khi vào xem `sub_100011D9` , sẽ quyết định LoadLibrary kernel32.dll hay kernelbase.dll , và `sub_10001087` là wrap around của **GetProcAddr** nên ta sẽ rename lại `sub_10001064` → `mw_like_GetProcAddr`. Như vậy, DLL này sử dụng dynamic resolve API với tham số là các hash. Ta sẽ xref từ hàm này để xem các called API.
+`sub_100011D9` sẽ quyết định LoadLibrary **kernel32.dll** hay **kernelbase.dll** , và `sub_10001087` là wrap around của **GetProcAddr** nên ta sẽ rename lại `sub_10001064` → `mw_like_GetProcAddr`. Như vậy, DLL này sử dụng dynamic resolve API với tham số là các hash. Ta sẽ xref từ hàm này để xem các called API.
 
 ![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/Untitled.png)
 
@@ -180,8 +180,8 @@ int __thiscall mw_main(void *this, void *a2, int a3)
 Hàm này sẽ:
 
 1. Tạo mutex `{2C162931-8D57-421F-A4D1-F31111A5017F}`
-2. Đọc file `lengs.medil.xml` và giải mã (RC4) file đó với key (= `7F2C443662BBAC5D569C72CB175F6C91` , key length = 16) được khởi tạo ở trên và lưu vào kết quả giải mã đc vào buffer `v10`  (shellcode).
-    
+2. Đọc file `lengs.medil.xml` và giải mã (RC4) file đó với key (= `7F2C443662BBAC5D569C72CB175F6C91` , key length = 16) được khởi tạo ở trên và lưu vào kết quả giải mã đc vào buffer `v10`  (shellcode). Hàm giải mã RC4:
+
     ```c
     int __stdcall mw_dec_rc4(int arg_buf_res, unsigned int arg_buf_len, int arg_key, int equ_16)
     {
@@ -230,10 +230,18 @@ Hàm này sẽ:
     ```
     
 3. Tạo thread mới để chạy shellcode trên.
-
+```c
+uintptr_t _beginthread( // NATIVE CODE
+   void( __cdecl *start_address )( void * ),
+   unsigned stack_size,
+   void *arglist
+);
+```
 Ta sẽ đặt breakpoint tại hàm `_beginthread` và dump shellcode từ tham số đầu tiên của hàm này.
 
-Shellcode ta dump ra có 2 string lạ `Lotes.dll` và `ReflectiveLoader@4`  (pe-bear, Exports tab)
+> Shellcode bắt đầu vs 2 byte quen thuộc `4D 5A` (`MZ`) 🕵️
+
+Nên ta sẽ bỏ vào PE-bear để xem, và tìm được 2 strings lạ `Lotes.dll` và `ReflectiveLoader@4` (Exports tab)
 
 ![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/Untitled%201.png)
 
@@ -501,6 +509,6 @@ void (__stdcall *__stdcall mw_reflectiveLoader(int arg_param))(unsigned int, int
 }
 ```
 
-Sử dụng [1768.py](https://github.com/DidierStevens/DidierStevensSuite/blob/master/1768.py) để extract thông tin về shellcode:
+Sử dụng [1768.py](https://github.com/DidierStevens/DidierStevensSuite/blob/master/1768.py) để extract behaviour của shellcode:
 
 ![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/Untitled%202.png)
