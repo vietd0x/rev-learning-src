@@ -23,11 +23,15 @@ Load `win.exe` vào IDA:
 
 ![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/win_exe_call_Go.png)
 
-Đầu tiên ta tìm được hàm `Go` (exported function of gtn.dll) mà win.exe gọi tới. 
+Trace theo luồng thực thi, ta tìm được hàm `Go` được gọi tới (exported function of gtn.dll). 
 
-> Ta sẽ tập chung vào việc phân tích malicious Dll **gtn.dll**.
+> Đây chính là exported funct mà ta giả thiết để malicious DLL cần để thực thi độc hại ta sẽ tập trung phân tích **gtn.dll** vs entrypoint là hàm `Go`.
+> 
+Nhưng nếu đi từ việc phần tích từ `Go` thì rất khó vì hàm `Go` có một lượng lớn các subroutines, khiến cho luồng thực thi khó nhận diện (anti-analysis ???).
 
-Sử dụng ida plugin **FuncScanner**, ta sẽ sort theo xref để tìm ra hàm được gọi nhiều nhất nhưng ko phải là hàm của thư viện, ta tìm đến hàm **sub_10001064** dưởi đây:
+![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/go_ani_analysis.png)
+
+Do đó ta sẽ tiếp cận theo hướng called API, sử dụng ida plugin **FuncScanner**, ta sẽ sort theo xref để tìm ra hàm được gọi nhiều nhất nhưng ko phải là hàm của thư viện, ta tìm đến hàm **sub_10001064** dưởi đây:
 
 ```bash
 int __cdecl sub_10001064(char a1, char a2){
@@ -507,7 +511,64 @@ void (__stdcall *__stdcall mw_reflectiveLoader(int arg_param))(unsigned int, int
   return dll_entry_point;
 }
 ```
+# D. CobaltStrike beacon config:
 
-Sử dụng [1768.py](https://github.com/DidierStevens/DidierStevensSuite/blob/master/1768.py) để extract behaviour của shellcode:
+Sau khi Dll đã được full loaded lên VAS (Virtual Addr Space) của tiến trình **win.exe**, `dll_entry_point` sẽ gọi tới DllMain để thực thi như bình thường, ta cần sử dụng IDA để xem.
+Load shellcode vào IDA với default setting, IDA sẽ recognize `DllMain`:
+```c
+BOOL __stdcall DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+{
+  char v4[24]; // [esp+0h] [ebp-1Ch] BYREF
+  int v5; // [esp+18h] [ebp-4h]
+
+  if ( fdwReason == 1 )
+  {
+    mw_dec_and_parse_beacon_config((int)hinstDLL);
+  }
+  else if ( fdwReason == 4 )
+  {
+    if ( (unsigned __int16)sub_10009BF7() == 1 && hinstDLL && _____________5(hinstDLL, v4, 28) )
+    {
+      if ( v5 == 0x20000 )
+      {
+        __________________________(hinstDLL, 0, 0x8000);
+      }
+      else if ( v5 == 0x40000 )
+      {
+        _______________T____________(hinstDLL);
+      }
+    }
+    sub_10001388();
+  }
+  return 1;
+}
+```
+Và gọi hàm `mw_dec_and_parse_beacon_config`. Ta thấy một loop vs hard-coded value `0x2e` là giá trị thường sử dụng trong `CobaltStrike Beacon` version 4 dùng để decode beacon config. ta sẽ sử dụng script dứi đây để extract config.
+
+![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/a.png)
+
+```
+λ FLOSS.exe dumped1.bin
+FLOSS static ASCII strings
+
+update.baohoety.com,/list/hx28/update/config.php
+Chrome/68.0.3541.756 Safari/547.38
+@/List/hx29/update/config.php
+Host: update.baohoety.com
+Connection: close
+Host: update.baohoety.com
+Connection: close
+'Origin: http://update.baohoety.com.info
+/Content-Type: application/x-www-form-urlencoded
+Accept: */*
+Accept-Language: en-US
+@%windir%\syswow64\mmc.exe
+@%windir%\sysnative\mmc.exe
+POST
+```
+Có thể sử dụng [1768.py](https://github.com/DidierStevens/DidierStevensSuite/blob/master/1768.py) để extract behaviour của shellcode:
 
 ![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/Untitled%202.png)
+
+# refs:
+[quicknote-cobaltstrike-smb-beacon-analysis-2_kienmanowar]([report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/Untitled%202.png](https://kienmanowar.wordpress.com/2022/06/04/quicknote-cobaltstrike-smb-beacon-analysis-2/))
