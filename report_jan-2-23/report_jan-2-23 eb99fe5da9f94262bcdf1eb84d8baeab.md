@@ -250,6 +250,19 @@ Nên ta sẽ bỏ vào PE-bear để xem, và tìm được 2 strings lạ `Lote
 Sau khi sử dụng 2 keyword này tìm trên gg, dẫn đến [post](https://kienmanowar.wordpress.com/2022/06/04/quicknote-cobaltstrike-smb-beacon-analysis-2/) của a Kiên (**4. Analyze Lotes.dll)**. Hàm dưới đây tương tự [code](https://github.com/stephenfewer/grinder/blob/master/node/source/logger/ReflectiveLoader.c)
 
 Shellcode này bản chất là 1 file PE (DLL) hoàn chỉnh, nó sẽ load chính nó vào trusted process `win.exe` (signed by Google) đang chạy, dưới 1 thread mới sử dụng kĩ thuật ReflectiveLoader.
+> NOTE: Load vào IDA với option [Load file as `Binary file`] để xem shellcode thực thi.
+> 
+> Túm cái váy là kỹ thuật ReflectiveLoader hoạt động như windows loader để load file into memory, quá trình này diễn ra bên trong bộ nhớ nên khó bị phát hiện. Sau đó gọi tới entrypoint của image mới được loaded xong, `Dll với DLL_PROCESS_ATTACH` sẽ được thực thi.
+> 
+> Step 1: loop backwards tới đầu shellcode (= get addr base of this shellcode/DLL in memory)
+> 
+> Step 2: Get dll base of kernel32.dll by hash value compare and resolve needed API: LoadLibraryA, GetProcAddress, VirtualAlloc, VirtualProtect, LoadLibraryExA, GetModuleHandleA.
+> 
+> Step 3: Load image in new alloc mem and all sections
+> 
+> Step 4: rebasing image
+> 
+> Step 5: call image entry point
 ```c
 void (__stdcall *__stdcall mw_reflectiveLoader(int arg_param))(unsigned int, int, int)
 {
@@ -511,6 +524,7 @@ void (__stdcall *__stdcall mw_reflectiveLoader(int arg_param))(unsigned int, int
   return dll_entry_point;
 }
 ```
+
 # D. CobaltStrike beacon config:
 
 Sau khi Dll đã được full loaded lên VAS (Virtual Addr Space) của tiến trình **win.exe**, `dll_entry_point` sẽ gọi tới DllMain để thực thi như bình thường, ta cần sử dụng IDA để xem.
@@ -521,7 +535,7 @@ BOOL __stdcall DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
   char v4[24]; // [esp+0h] [ebp-1Ch] BYREF
   int v5; // [esp+18h] [ebp-4h]
 
-  if ( fdwReason == 1 )
+  if ( fdwReason == 1 ) // DLL_PROCESS_ATTACH
   {
     mw_dec_and_parse_beacon_config((int)hinstDLL);
   }
