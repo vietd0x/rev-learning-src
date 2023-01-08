@@ -1,6 +1,6 @@
 # report_jan-2-23
 
-# Files:
+# A. Files:
 
 Ta có 3 tệp như sau
 
@@ -17,7 +17,7 @@ md5: 5d61be7db55b026a5d61a3eed09d0ead
 
 Bước đầu tiên ta sẽ tra hash các file với virustotal, file thực thi `win.exe` với kết quả 0/70, file `lengs.medil.xml` được scan 6 tháng trước (2022-6-14) với kêt quả 0/50 và `gtn.dll` với kết quả  **28/70** . Như vậy, ta có thể đoán được khi người dùng chạy file thực thi win.exe, malicious code trong dll **gtn.dll** sẽ chạy.
 
-# Quick analysis:
+# B. gtn.dll:
 
 Đầu tiên ta tìm được hàm `Go` (export function of gtn.dll) mà win.exe gọi tới. 
 
@@ -35,10 +35,16 @@ int __cdecl sub_10001064(char a1, char a2){
 }
 ```
 
-`sub_100011D9` sẽ quyết định LoadLibrary **kernel32.dll** hay **kernelbase.dll** , và `sub_10001087` là wrap around của **GetProcAddr** nên ta sẽ rename lại `sub_10001064` → `mw_like_GetProcAddr`. Như vậy, DLL này sử dụng dynamic resolve API với tham số là các hash. Ta sẽ xref từ hàm này để xem các called API.
+`sub_100011D9` sẽ quyết định LoadLibrary **kernel32.dll** hay **kernelbase.dll** dựa vào hashed Dll name, và `sub_10001087` là wrap around của **GetProcAddr** nên ta sẽ rename lại `sub_10001064` → `mw_like_GetProcAddr` (tham số thứ nhất xác định dll, tham số thứ hai xác định API nào sẽ đc resolve). Như vậy, DLL này sử dụng dynamic resolve API với tham số là các hash. Ta sẽ xref từ hàm này để xem các called API.
 
 ![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/Untitled.png)
 
+Từ hàm `mw_like_GetProcAddr` đã rename từ trước, ta sẽ trace lên hàm `Go`, ta tìm được hàm resolve rắt nhiều API hay ho: CreateMutexA, GetModuleFileNameW, VirtualProtect, beginthread. Nên ta đoán đoán là hàm này là hàm sử lí chính rename -> `mw_main`
+```
+Go
+└───sub_10002BCF
+	└───mw_main		
+```
 ```c
 int __thiscall mw_main(void *this, void *a2, int a3)
 {
@@ -228,7 +234,38 @@ Hàm này sẽ:
       return arg_buf_res;
     }
     ```
-    
+    Sau khi viết lại hàm này = python, ta thu được shellcode là file **out.bin**
+    ```python
+    fOut = "out.bin"
+    key = bytes.fromhex('7F2C443662BBAC5D569C72CB175F6C91')
+    res =  []
+
+    def dec_rc4(cipherT, size, key, keyLen = 16):
+	S = [i for i in range(256)]# v15[256+]
+	K = [key[i%keyLen] for i in range(256)]
+
+	j = 0
+	for i in range(256):
+		j = (S[i] + K[i] + j) % 256
+		S[i], S[j] = S[j], S[i]
+
+	i = 0
+	j = 0
+	for k in range(size):
+		i = (i + 1) % 256 # v4
+		j = (j + S[i]) % 256 # v10
+		S[i], S[j] = S[j], S[i]
+
+		res.append(int((S[(S[i] + S[j]) % 256]) ^ cipherT[k]))
+			
+    with open("lengs.medil.xml", 'rb') as fIn:
+		buf = fIn.read()
+
+    dec_rc4(buf, len(buf), key)
+
+    with open(fOut, "wb") as f:
+	f.write(bytearray(res))
+	```
 3. Tạo thread mới để chạy shellcode trên.
 ```c
 uintptr_t _beginthread( // NATIVE CODE
@@ -238,6 +275,7 @@ uintptr_t _beginthread( // NATIVE CODE
 );
 ```
 Ta sẽ đặt breakpoint tại hàm `_beginthread` và dump shellcode từ tham số đầu tiên của hàm này.
+# C. shellcode:
 
 > Shellcode bắt đầu vs 2 byte quen thuộc `4D 5A` (`MZ`) 🕵️
 
@@ -247,6 +285,7 @@ Nên ta sẽ bỏ vào PE-bear để xem, và tìm được 2 strings lạ `Lote
 
 Sau khi sử dụng 2 keyword này tìm trên gg, dẫn đến [post](https://kienmanowar.wordpress.com/2022/06/04/quicknote-cobaltstrike-smb-beacon-analysis-2/) của a Kiên (**4. Analyze Lotes.dll)**. Hàm dưới đây tương tự [code](https://github.com/stephenfewer/grinder/blob/master/node/source/logger/ReflectiveLoader.c)
 
+Shellcode này bản chất là 1 file PE (DLL) hoàn chỉnh, nó sẽ load chính nó vào trusted process `win.exe` (signed by Google) đang chạy, dưới 1 thread mới sử dụng kĩ thuật ReflectiveLoader.
 ```c
 void (__stdcall *__stdcall mw_reflectiveLoader(int arg_param))(unsigned int, int, int)
 {
