@@ -15,11 +15,15 @@ win.exe:         PE32 executable (GUI) Intel 80386, for MS Windows
 md5: 5d61be7db55b026a5d61a3eed09d0ead
 ```
 
-Bước đầu tiên ta sẽ tra hash các file với virustotal, file thực thi `win.exe` với kết quả 0/70, file `lengs.medil.xml` được scan 6 tháng trước (2022-6-14) với kêt quả 0/50 và `gtn.dll` với kết quả  **28/70** . Như vậy, ta có thể đoán được khi người dùng chạy file thực thi win.exe, malicious code trong dll **gtn.dll** sẽ chạy.
+Bước đầu tiên ta sẽ tra hash các file với virustotal, file thực thi `win.exe` với kết quả 0/70, file `lengs.medil.xml` được scan 6 tháng trước (2022-6-14) với kêt quả 0/50 và `gtn.dll` với kết quả  **28/70** . Như vậy, ta có thể đoán được khi người dùng chạy file thực thi win.exe, malicious code trong dll **gtn.dll** sẽ được load để thực thi.
 
 # B. gtn.dll:
 
-Đầu tiên ta tìm được hàm `Go` (export function of gtn.dll) mà win.exe gọi tới. 
+Load `win.exe` vào IDA:
+
+![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/win_exe_call_Go.png)
+
+Đầu tiên ta tìm được hàm `Go` (exported function of gtn.dll) mà win.exe gọi tới. 
 
 > Ta sẽ tập chung vào việc phân tích malicious Dll **gtn.dll**.
 
@@ -35,11 +39,14 @@ int __cdecl sub_10001064(char a1, char a2){
 }
 ```
 
-`sub_100011D9` sẽ quyết định LoadLibrary **kernel32.dll** hay **kernelbase.dll** dựa vào hashed Dll name, và `sub_10001087` là wrap around của **GetProcAddr** nên ta sẽ rename lại `sub_10001064` → `mw_like_GetProcAddr` (tham số thứ nhất xác định dll, tham số thứ hai xác định API nào sẽ đc resolve). Như vậy, DLL này sử dụng dynamic resolve API với tham số là các hash. Ta sẽ xref từ hàm này để xem các called API.
+`sub_100011D9` sẽ quyết định LoadLibrary **kernel32.dll** hay **kernelbase.dll** dựa vào hashed Dll name, và `sub_10001087` là wrap around của **GetProcAddr** nên ta sẽ rename lại `sub_10001064` → `mw_like_GetProcAddr` (tham số thứ nhất xác định dll, tham số thứ hai xác định API nào sẽ đc resolve; 2 tham số này là đã được fix cố định). Như vậy, DLL này sử dụng dynamic resolve API với tham số là các hash. Ta sẽ xref từ hàm này để xem các called API.
 
+> kỹ thuật dynamic resolve API được dùng để ẩn các API thường có của mã độc như: VirtualAlloc, VirtualProtect, CreateMutex, CreatFile, ReadFileA,... trong import tab. Bằng cách sử dụng cấu trúc PEB (Process Environment Block) để tìm DLL base cần thiết thay vì dùng `LoadLibraryA`.
+> Sau khi có DLL base, ta có thể parse như PE file bình thường và loop through mảng ENT (Export name table) chứa tên các export funct, nhưng nếu ta sẽ để tên hàm cần thiết ở dạng fixed string values để so sánh thì dễ bị phát hiện, nên các mã độc thường kết hợp với thuật toán hash và so sánh hashed value của tên các hàm (khi đó mã độc chỉ chứa các fixed hex values as global variables nên khó phát hiện hơn).
+> 
 ![Untitled](report_jan-2-23%20eb99fe5da9f94262bcdf1eb84d8baeab/Untitled.png)
 
-Từ hàm `mw_like_GetProcAddr` đã rename từ trước, ta sẽ trace lên hàm `Go`, ta tìm được hàm resolve rắt nhiều API hay ho: CreateMutexA, GetModuleFileNameW, VirtualProtect, beginthread. Nên ta đoán đoán là hàm này là hàm sử lí chính rename -> `mw_main`
+Từ hàm `mw_like_GetProcAddr` đã rename từ trước, ta sẽ trace lên hàm `Go`, ta tìm được hàm resolve rắt nhiều API hay ho: CreateMutexA, GetModuleFileNameW, VirtualProtect, beginthread. Nên ta đoán là hàm này là hàm sử lí chính rename -> `mw_main`
 ```
 Go
 └───sub_10002BCF
@@ -187,54 +194,7 @@ Hàm này sẽ:
 
 1. Tạo mutex `{2C162931-8D57-421F-A4D1-F31111A5017F}`
 2. Đọc file `lengs.medil.xml` và giải mã (RC4) file đó với key (= `7F2C443662BBAC5D569C72CB175F6C91` , key length = 16) được khởi tạo ở trên và lưu vào kết quả giải mã đc vào buffer `v10`  (shellcode). Hàm giải mã RC4:
-
-    ```c
-    int __stdcall mw_dec_rc4(int arg_buf_res, unsigned int arg_buf_len, int arg_key, int equ_16)
-    {
-      int v4; // esi
-      int i; // ecx
-      int v6; // edi
-      int j; // edx
-      int v8; // ecx
-      int v9; // eax
-      int v10; // edx
-      unsigned int k; // edi
-      int v12; // ecx
-      int v13; // eax
-      int v15[512]; // [esp+Ch] [ebp-804h]
-    
-      v4 = 0;
-      for ( i = 0; i < 256; ++i )
-      {
-        v15[i + 256] = i;
-        v15[i] = *(unsigned __int8 *)(i % equ_16 + arg_key);
-      }
-      v6 = 0;
-      for ( j = 0; j < 256; ++j )
-      {
-        v8 = v15[j + 256];
-        v6 = (v8 + v15[j] + v6) % 256;
-        v9 = v15[v6 + 256];
-        v15[v6 + 256] = v8;
-        v15[j + 256] = v9;
-      }
-      v10 = 0;
-      for ( k = 0; k < arg_buf_len; ++k )
-      {
-        v4 = (v4 + 1) % 256; // i
-        v12 = v15[v4 + 256];
-        v10 = (v12 + v10) % 256; // j
-    		// swap
-        v13 = v15[v10 + 256];
-        v15[v10 + 256] = v12;
-        v15[v4 + 256] = v13;
-    		// assign
-        *(_BYTE *)(arg_buf_res + k) ^= LOBYTE(v15[(v13 + v15[v10 + 256]) % 256 + 256]);
-      }
-      return arg_buf_res;
-    }
-    ```
-    Sau khi viết lại hàm này = python, ta thu được shellcode là file **out.bin**
+    Sau khi viết lại hàm decrypt RC4 = python, ta thu được shellcode là file **out.bin**
     ```python
     fOut = "out.bin"
     key = bytes.fromhex('7F2C443662BBAC5D569C72CB175F6C91')
