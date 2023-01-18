@@ -1,0 +1,55 @@
+VBA FORM STRING IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma/o'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Ny3av00ll97ltoy
+-------------------------------------------------------------------------------
+VBA FORM STRING IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma/o'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Wmyd37gtxrphjkb
+-------------------------------------------------------------------------------
+VBA FORM STRING IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma/o'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Tahoma;
+-------------------------------------------------------------------------------
+VBA FORM STRING IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma/o'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Fskdm2zvwtdesh
+-------------------------------------------------------------------------------
+VBA FORM STRING IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma/o'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Tahoma�
+-------------------------------------------------------------------------------
+VBA FORM STRING IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma/o'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Gg6xs1_7x7ja
+-------------------------------------------------------------------------------
+VBA FORM Variable "b'Urer04ndu5q_jgnt0'" IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+b'Ny3av00ll97ltoy'
+-------------------------------------------------------------------------------
+VBA FORM Variable "b'G9296_zlvb28jru8'" IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+b'Wmyd37gtxrphjkb'
+-------------------------------------------------------------------------------
+VBA FORM Variable "b'M3sl9apgyan8k'" IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+b'P'
+-------------------------------------------------------------------------------
+VBA FORM Variable "b'Vo_3ycaurbu'" IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+b'Fskdm2zvwtdesh'
+-------------------------------------------------------------------------------
+VBA FORM Variable "b'Ptvl917_3fhv4ghbhb'" IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+b'tar'
+-------------------------------------------------------------------------------
+VBA FORM Variable "b'Ct8nqi_rrjku1h0h'" IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+None
+-------------------------------------------------------------------------------
+VBA FORM Variable "b'Ys_jgil82mmhf'" IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+b'tu'
+-------------------------------------------------------------------------------
+VBA FORM Variable "b'E8qursw9anoz'" IN 'maldoc.doc' - OLE stream: 'Macros/Bkc5re_xxwma'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+b'Gg6xs1_7x7j'
